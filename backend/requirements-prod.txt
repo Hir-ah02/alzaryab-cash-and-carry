@@ -1,0 +1,4 @@
+# Production server: everything in requirements.txt plus a WSGI server.
+# Install with: pip install -r requirements-prod.txt
+-r requirements.txt
+gunicorn>=23,<27

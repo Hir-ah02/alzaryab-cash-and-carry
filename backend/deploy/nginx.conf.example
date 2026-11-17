@@ -1,0 +1,67 @@
+# nginx in front of gunicorn. Replace API_DOMAIN and ADMIN_DOMAIN with the real names,
+# and get certificates (e.g. Let's Encrypt: sudo certbot --nginx -d API_DOMAIN -d ADMIN_DOMAIN).
+
+# Requests for any other host name (scanners, wrong DNS) are dropped before reaching Django.
+server {
+    listen 80 default_server;
+    listen 443 ssl default_server;
+    ssl_reject_handshake on;
+    return 444;
+}
+
+server {
+    listen 80;
+    server_name API_DOMAIN ADMIN_DOMAIN;
+    return 301 https://$host$request_uri;
+}
+
+# API + product images + Django admin static files
+server {
+    listen 443 ssl http2;
+    server_name API_DOMAIN;
+
+    ssl_certificate     /etc/letsencrypt/live/API_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/API_DOMAIN/privkey.pem;
+
+    client_max_body_size 6m;  # product images are limited to 5 MB by the API
+
+    location /media/ {
+        alias /srv/alzaryab/backend/media/;
+        expires 30d;  # file names are random and never reused
+        add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options nosniff;
+    }
+    location /static/ {
+        alias /srv/alzaryab/backend/staticfiles/;  # filled by: manage.py collectstatic
+        expires 7d;
+    }
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}
+
+# Admin portal (static files from `npm run build`, built with VITE_API_URL=https://API_DOMAIN/api)
+server {
+    listen 443 ssl http2;
+    server_name ADMIN_DOMAIN;
+
+    ssl_certificate     /etc/letsencrypt/live/ADMIN_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ADMIN_DOMAIN/privkey.pem;
+
+    root /srv/alzaryab/admin;
+    index index.html;
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header Referrer-Policy same-origin;
+    # Limits what injected scripts could do; the portal only talks to its own files and the API.
+    add_header Content-Security-Policy "default-src 'self'; img-src 'self' https://API_DOMAIN data: blob:; connect-src https://API_DOMAIN; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'";
+    add_header Strict-Transport-Security "max-age=86400";
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

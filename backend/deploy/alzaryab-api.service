@@ -1,0 +1,20 @@
+# systemd unit for the API. Copy to /etc/systemd/system/, adjust paths and user, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now alzaryab-api
+[Unit]
+Description=Al Zaryab API (Django + gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=alzaryab
+Group=alzaryab
+WorkingDirectory=/srv/alzaryab/backend
+# Production settings live here (chmod 600, owned by root). Never copy the development backend/.env.
+EnvironmentFile=/etc/alzaryab/api.env
+ExecStart=/srv/alzaryab/backend/.venv/bin/gunicorn -c deploy/gunicorn.conf.py config.wsgi
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

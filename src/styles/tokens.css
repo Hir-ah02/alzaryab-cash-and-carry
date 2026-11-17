@@ -1,0 +1,94 @@
+/* ==========================================================================
+   Alzaryab Cash & Carry – Design tokens
+   Every colour, spacing, radius, shadow and type value used in the app
+   comes from here. Change a token once and the whole portal updates.
+   ========================================================================== */
+
+:root {
+  /* ---------- Brand ---------- */
+  --brand-primary: #15803D;
+  --brand-primary-hover: #166534;
+  --brand-primary-pressed: #14532D;
+  --brand-primary-subtle: #DCFCE7;
+  --brand-primary-tint: #F0FDF4;
+
+  /* Yellow is a brand accent only: logo, avatar, "Admin Portal" pill */
+  --brand-secondary: #F5B800;
+  --brand-secondary-subtle: #FEF5D6;
+  --brand-secondary-strong: #7A5600;
+
+  /* ---------- Neutrals ---------- */
+  --neutral-background: #F5F7F4;
+  --neutral-surface: #FFFFFF;
+  --neutral-surface-muted: #F9FAF8;
+  --neutral-border: #E3E7E2;
+  --neutral-border-strong: #CDD3CC;
+  --neutral-disabled-bg: #F0F2EF;
+  --neutral-overlay: rgba(15, 26, 19, .48);
+
+  /* ---------- Text ---------- */
+  --text-primary: #17201A;
+  --text-secondary: #5B6660;
+  --text-tertiary: #8B958E;
+  --text-disabled: #A9B1AB;
+
+  /* ---------- Feedback ---------- */
+  --success: #15803D;
+  --success-bg: #EAF7EE;
+  --success-border: #BFE5CB;
+
+  --warning: #D97706;
+  --warning-text: #B45309;
+  --warning-bg: #FFF6E5;
+  --warning-border: #FAD9A1;
+
+  --error: #DC2626;
+  --error-hover: #B91C1C;
+  --error-text: #B42318;
+  --error-bg: #FEF1F1;
+  --error-border: #F9C9C9;
+
+  /* ---------- Spacing (8px base) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---------- Radius ---------- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  /* ---------- Shadows ---------- */
+  --shadow-card: 0 1px 2px rgba(16, 24, 20, .05);
+  --shadow-dropdown: 0 8px 24px -4px rgba(16, 24, 20, .08);
+  --shadow-modal: 0 24px 48px -12px rgba(16, 24, 20, .16);
+  --shadow-focus: 0 0 0 3px rgba(21, 128, 61, .18);
+  --shadow-focus-error: 0 0 0 3px rgba(220, 38, 38, .16);
+
+  /* ---------- Typography (Inter) ---------- */
+  --font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --font-page-title: 600 24px/32px var(--font-family);
+  --font-section-heading: 600 18px/28px var(--font-family);
+  --font-card-number: 700 30px/38px var(--font-family);
+  --font-body: 400 14px/20px var(--font-family);
+  --font-label: 500 14px/20px var(--font-family);
+  --font-helper: 400 12px/16px var(--font-family);
+  --font-table-header: 500 12px/16px var(--font-family);
+
+  /* ---------- Layout ---------- */
+  --sidebar-width: 256px;
+  --sidebar-width-collapsed: 76px;
+  --header-height: 72px;
+  --control-height-md: 40px;
+  --control-height-sm: 32px;
+  --transition: 150ms ease;
+}
