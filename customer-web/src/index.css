@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* Al Zaryab palette: same values as the admin portal (src/styles/tokens.css) and the mobile app. */
+@theme {
+  --color-brand-50: #f0fdf4;
+  --color-brand-100: #dcfce7;
+  --color-brand-600: #15803d;
+  --color-brand-700: #166534;
+  --color-brand-800: #14532d;
+  --color-gold-100: #fef5d6;
+  --color-gold-400: #f5b800;
+  --color-gold-800: #7a5600;
+  --color-canvas: #f5f7f4;
+  --color-surface-muted: #f9faf8;
+  --color-line: #e3e7e2;
+  --color-line-strong: #cdd3cc;
+  --color-ink: #17201a;
+  --color-ink-2: #5b6660;
+  --color-ink-3: #8b958e;
+  --color-danger: #b42318;
+  --color-danger-bg: #fef1f1;
+  --color-warn: #b45309;
+  --color-warn-bg: #fff6e5;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-canvas text-ink antialiased; }
+  :focus-visible { outline: 2px solid var(--color-brand-600); outline-offset: 2px; }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}

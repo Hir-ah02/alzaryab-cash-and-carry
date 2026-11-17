@@ -142,6 +142,25 @@ strict security headers, including a Content-Security-Policy that only allows th
 the API. Any static host (Netlify, Cloudflare Pages, S3 + CloudFront) also works; set the same headers there.
 Remember to put `https://ADMIN_DOMAIN` in `CORS_ALLOWED_ORIGINS`.
 
+## 8a. Customer website hosting (not deployed yet)
+
+The customer website (`customer-web/`) is a static build (`npm run build` → `customer-web/dist/`).
+It calls the API on **its own domain** under `/api` and loads images from `/media`, so the web
+server for `SHOP_DOMAIN` must:
+
+1. Serve `customer-web/dist/` with a fallback to `index.html` for unknown paths
+   (`try_files $uri /index.html;`): the site uses normal URLs such as `/products/12`.
+2. Proxy `/api/` to gunicorn and serve `/media/` exactly as the `API_DOMAIN` block does
+   (no CORS entry is needed because the browser stays on one origin).
+3. Send security headers including a strict Content-Security-Policy, e.g.
+   `default-src 'self'; img-src 'self' data:; connect-src 'self'; style-src 'self' 'unsafe-inline';
+   frame-ancestors 'none'; base-uri 'self'` (login tokens are kept in browser storage).
+4. Add `SHOP_DOMAIN` to `DJANGO_ALLOWED_HOSTS` (and `CSRF_TRUSTED_ORIGINS` if Django's admin is used).
+5. Behind nginx, set `proxy_set_header X-Forwarded-For $remote_addr;` (not
+   `$proxy_add_x_forwarded_for`) so visitors can't fake their IP to bypass the per-IP rate limits.
+6. Review the anonymous rate limit (`ANON_THROTTLE_RATE`, default 300/min per IP): many customers
+   behind one shared IP (office, mobile carrier) share that limit.
+
 ## 9. Backups, restore and monitoring
 
 **Backups:** `backend/deploy/backup.sh` writes a compressed database dump and an archive of the images,

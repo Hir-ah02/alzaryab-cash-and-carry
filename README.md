@@ -9,6 +9,8 @@ which stores everything in PostgreSQL. All data access goes through `src/service
 **Stack:** React 19 + Vite, React Router 7 (hash routing), lucide-react icons, plain CSS with
 CSS variables, Inter font. Backend: Django 5.2, Django REST Framework, SimpleJWT, PostgreSQL 17.
 
+**Customer website:** [`customer-web/`](customer-web/README.md) (http://localhost:5174, same API and database).
+
 **Guides:** [first-time testing for the owner](docs/UAT_TESTING_GUIDE.md) ·
 [deployment](docs/DEPLOYMENT.md) · [security review](docs/SECURITY_REVIEW.md) ·
 [API](backend/README.md) · [customer app](mobile/README.md)
