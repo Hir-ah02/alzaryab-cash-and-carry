@@ -14,8 +14,12 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+from .database import build_database_settings
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Development reads backend/.env. Hosted environments (Render) inject real environment variables,
+# which always win over the file; no .env file exists there.
 load_dotenv(BASE_DIR / '.env')
 
 
@@ -34,21 +38,31 @@ def env_list(name, default=''):
     return [item.strip() for item in env(name, default).split(',') if item.strip()]
 
 
+# Placeholders from the deploy/*.env.example templates that must never reach a running server.
+TEMPLATE_PLACEHOLDER = re.compile(r'<(?:[A-Z][A-Z0-9_]{2,}|generate-on-server|confirm-with-owner[^>]*)>')
+
+
+def unfilled_template_values(environ):
+    """Names of environment variables still holding a template placeholder such as <API_DOMAIN>."""
+    return sorted(name for name, value in environ.items() if TEMPLATE_PLACEHOLDER.search(value or ''))
+
+
 SECRET_KEY = env('DJANGO_SECRET_KEY', required=True)
 # Off unless explicitly turned on: a missing variable can never put a server into debug mode.
 DEBUG = env_bool('DJANGO_DEBUG', False)
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1' if DEBUG else '')
+# Render sets RENDER_EXTERNAL_HOSTNAME (e.g. alzaryab-api.onrender.com) on every web service.
+if env('RENDER_EXTERNAL_HOSTNAME') and env('RENDER_EXTERNAL_HOSTNAME') not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(env('RENDER_EXTERNAL_HOSTNAME'))
 
 if not DEBUG:
     # Production must be configured on purpose; refuse to start with development leftovers.
+    if unfilled := unfilled_template_values(os.environ):
+        raise ImproperlyConfigured(f'Replace the template placeholders in: {", ".join(unfilled)} (see the deploy/*.env.example template).')
     if len(SECRET_KEY) < 50 or SECRET_KEY.startswith(('change-me', 'django-insecure', 'test-')):
         raise ImproperlyConfigured('DJANGO_SECRET_KEY must be a long random value (50+ characters) in production.')
     if not ALLOWED_HOSTS or '*' in ALLOWED_HOSTS:
         raise ImproperlyConfigured('Set DJANGO_ALLOWED_HOSTS to the API domain(s) in production.')
-    if not env('DB_PASSWORD'):
-        raise ImproperlyConfigured(
-            'DB_PASSWORD is required in production: the database must use password (scram-sha-256) authentication, not trust.'
-        )
 
 
 # Application definition
@@ -75,6 +89,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'apps.core.middleware.ClientIpDiagnosticMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -106,18 +121,9 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database (PostgreSQL)
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME', required=True),
-        'USER': env('DB_USER', required=True),
-        'PASSWORD': env('DB_PASSWORD', ''),
-        'HOST': env('DB_HOST', 'localhost'),
-        'PORT': env('DB_PORT', '5432'),
-        'CONN_MAX_AGE': int(env('DB_CONN_MAX_AGE', '60')),
-        'CONN_HEALTH_CHECKS': True,
-    }
-}
+# Local development: DB_* variables (backend/.env). Hosted: DATABASE_URL with TLS (see config/database.py).
+# The database password requirement in production is enforced there too.
+DATABASES = {'default': build_database_settings(os.environ, debug=DEBUG)}
 
 # Optional: use a separate PostgreSQL schema inside the same database (e.g. an
 # isolated copy for browser tests). Leave unset to use the normal "public" schema.
@@ -125,7 +131,7 @@ DB_SCHEMA = env('DB_SCHEMA', '')
 if DB_SCHEMA:
     if not re.fullmatch(r'[a-z_][a-z0-9_]{0,62}', DB_SCHEMA):
         raise ImproperlyConfigured('DB_SCHEMA must be a simple lowercase identifier.')
-    DATABASES['default']['OPTIONS'] = {'options': f'-c search_path={DB_SCHEMA}'}
+    DATABASES['default'].setdefault('OPTIONS', {})['options'] = f'-c search_path={DB_SCHEMA}'
 
 
 # Authentication
@@ -160,9 +166,25 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
+# Client IP addresses (used by the per-IP rate limits)
+#
+# How many reverse proxies in front of Django append to X-Forwarded-For (nginx on the same server = 1).
+# DRF then takes the client address from the entry the trusted proxy wrote, and ignores anything the
+# client sent itself, so a forged X-Forwarded-For header can't make one visitor look like many and
+# escape the login / registration / password-reset limits. 0 = no proxy: the header is ignored and the
+# connection address (REMOTE_ADDR) is used. Never None: DRF would then trust the whole client-supplied
+# header (the bypass this setting prevents).
+TRUSTED_PROXY_COUNT = int(env('TRUSTED_PROXY_COUNT', '1' if env_bool('DJANGO_BEHIND_PROXY', False) else '0'))
+if TRUSTED_PROXY_COUNT < 0:
+    raise ImproperlyConfigured('TRUSTED_PROXY_COUNT must be 0 or more.')
+# Temporary diagnostic for a new host: log how /api/health/ requests arrive (apps/core/middleware.py).
+LOG_CLIENT_IP_HEADERS = env_bool('LOG_CLIENT_IP_HEADERS', False)
+
+
 # Django REST Framework
 
 REST_FRAMEWORK = {
+    'NUM_PROXIES': TRUSTED_PROXY_COUNT,
     # The API is used by the React portal with JWT bearer tokens only.
     # SimpleJWT bearer tokens, refused once the account's password has changed (apps.accounts.tokens).
     'DEFAULT_AUTHENTICATION_CLASSES': ['apps.accounts.authentication.PasswordBoundJWTAuthentication'],
@@ -214,6 +236,9 @@ PASSWORD_RESET_RESEND_SECONDS = 60  # pause between emails to one account
 PASSWORD_RESET_MAX_PER_HOUR = 5  # emails per account per hour
 PASSWORD_RESET_MAX_PER_DAY = 10  # …and per day: at most 50 code guesses a day against one account
 PASSWORD_RESET_EMAIL_ASYNC = True  # send after responding, so timing can't reveal whether an account exists
+# Off in production until email delivery has been configured AND a test email has been received.
+# While off, both password-reset endpoints answer 503 "contact the store" and nothing is sent or stored.
+PASSWORD_RESET_ENABLED = env_bool('PASSWORD_RESET_ENABLED', DEBUG)
 
 
 # Email. Development prints emails (with reset codes) to the runserver console.
@@ -263,6 +288,8 @@ CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', '')
 # HTTPS and security headers. Everything is on in production (DEBUG off) and off in development.
 
 SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', not DEBUG)
+# The hosting platform's health checks call this directly over HTTP inside its network.
+SECURE_REDIRECT_EXEMPT = [r'^api/health/$']
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True

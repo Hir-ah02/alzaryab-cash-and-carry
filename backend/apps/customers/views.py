@@ -29,6 +29,16 @@ RESET_REQUESTED = (
 RESET_INVALID = 'This code is wrong or has expired. Check the email or ask for a new code.'
 
 
+RESET_UNAVAILABLE = "Password reset by email isn't available yet. Please contact the store to reset your password."
+
+
+def password_reset_unavailable():
+    """503 while PASSWORD_RESET_ENABLED is off (email delivery not set up and tested yet); otherwise None."""
+    if settings.PASSWORD_RESET_ENABLED:
+        return None
+    return Response({'detail': RESET_UNAVAILABLE, 'code': 'password_reset_unavailable'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
 class CustomerRegisterView(APIView):
     """POST /api/customer/auth/register/  {email, password, firstName, lastName?, phone?} → 201 {access, refresh, user}"""
 
@@ -126,6 +136,8 @@ class PasswordResetRequestView(APIView):
     throttle_scope = 'password_reset'
 
     def post(self, request):
+        if unavailable := password_reset_unavailable():
+            return unavailable
         data = PasswordResetRequestSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         request_reset(data.validated_data['email'])
@@ -144,6 +156,8 @@ class PasswordResetConfirmView(APIView):
     throttle_scope = 'password_reset_confirm'
 
     def post(self, request):
+        if unavailable := password_reset_unavailable():
+            return unavailable
         data = PasswordResetConfirmSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         values = data.validated_data

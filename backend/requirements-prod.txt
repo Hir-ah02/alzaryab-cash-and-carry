@@ -1,4 +1,5 @@
 # Production server: everything in requirements.txt plus a WSGI server.
-# Install with: pip install -r requirements-prod.txt
+# The server installs requirements-prod.lock (exact versions + hashes), generated from this file:
+#   pip-compile --generate-hashes --strip-extras --output-file requirements-prod.lock requirements-prod.txt
 -r requirements.txt
-gunicorn>=23,<27
+gunicorn>=26.2,<27

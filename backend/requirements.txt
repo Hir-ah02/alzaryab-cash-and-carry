@@ -1,7 +1,11 @@
-Django>=5.2,<5.3
-djangorestframework>=3.16,<3.17
-django-cors-headers>=4.7,<5
-psycopg[binary]>=3.2,<4
-python-dotenv>=1.1,<2
-Pillow>=12.2,<13
-djangorestframework-simplejwt>=5.5,<6
+# Direct dependencies (ranges). Production installs the exact, hash-checked versions in
+# requirements-prod.lock; regenerate it after changing this file (see backend/README.md).
+# Minimums carry security fixes: Django 5.2.19, DRF 3.18.3 (request-size bypass, Accept-header DoS),
+# Pillow 13.0 (image decoder memory bugs).
+Django>=5.2.19,<5.3
+djangorestframework>=3.18.3,<3.19
+django-cors-headers>=4.9,<5
+psycopg[binary]>=3.3.9,<4
+python-dotenv>=1.2,<2
+Pillow>=13.0,<14
+djangorestframework-simplejwt>=5.5.1,<6

@@ -404,3 +404,45 @@ class BrokenEmailBackend:
 
     def send_messages(self, messages):
         raise ConnectionRefusedError('SMTP server unavailable')
+
+
+class PasswordResetDisabledTests(CustomerTestBase):
+    """Production default until email delivery works: both endpoints refuse, nothing is sent or stored."""
+
+    def setUp(self):
+        super().setUp()
+        from django.core import mail
+
+        self.mail = mail
+        self.customer = make_customer()
+
+    def request_code(self, email='ali@example.com'):
+        return self.client.post('/api/customer/auth/password-reset/', {'email': email}, format='json')
+
+    def confirm(self, code, email='ali@example.com'):
+        return self.client.post('/api/customer/auth/password-reset/confirm/', {'email': email, 'code': code, 'password': 'Brand-New-Pass-77'}, format='json')
+
+    def test_disabled_reset_sends_nothing_and_stores_nothing(self):
+        from .models import PasswordResetCode
+
+        with override_settings(PASSWORD_RESET_ENABLED=False):
+            res = self.request_code()
+            self.assertEqual(res.status_code, 503)
+            self.assertEqual(res.data['code'], 'password_reset_unavailable')
+            self.assertIn('contact the store', res.data['detail'])
+            self.assertEqual(len(self.mail.outbox), 0)
+            self.assertFalse(PasswordResetCode.objects.exists())
+            res = self.confirm('123456')
+            self.assertEqual(res.status_code, 503)
+        # The password still works: nothing changed.
+        self.assertEqual(self.client.post('/api/customer/auth/login/', {'email': 'ali@example.com', 'password': PASSWORD}, format='json').status_code, 200)
+
+    def test_deploy_check_blocks_enabled_reset_without_email(self):
+        from apps.core.checks import password_reset_needs_email
+
+        with override_settings(PASSWORD_RESET_ENABLED=False):
+            self.assertEqual([m.id for m in password_reset_needs_email(None)], ['alzaryab.W006'])
+        with override_settings(PASSWORD_RESET_ENABLED=True, EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend', EMAIL_HOST=''):
+            self.assertEqual([m.id for m in password_reset_needs_email(None)], ['alzaryab.E002'])
+        with override_settings(PASSWORD_RESET_ENABLED=True, EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend', EMAIL_HOST='smtp.example.test'):
+            self.assertEqual(password_reset_needs_email(None), [])
